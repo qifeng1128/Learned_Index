@@ -12,15 +12,17 @@ BLOCK_SIZE = 100
 
 # 生成数据的分布可以为随机、伯努利、泊松、指数、均匀、对数均匀
 class Distribution(Enum):
-    RANDOM = 0
-    BINOMIAL = 1
-    POISSON = 2
-    EXPONENTIAL = 3
-    NORMAL = 4
-    LOGNORMAL = 5
+    LINEAR = 0
+    RANDOM = 1
+    BINOMIAL = 2
+    POISSON = 3
+    EXPONENTIAL = 4
+    NORMAL = 5
+    LOGNORMAL = 6
 
 # store path
 filePath = {
+    Distribution.LINEAR: "data/linear.csv",
     Distribution.RANDOM: "data/random.csv",
     Distribution.BINOMIAL: "data/binomial.csv",
     Distribution.POISSON: "data/poisson.csv",
@@ -31,6 +33,7 @@ filePath = {
 
 # path for storage optimization
 storePath = {
+    Distribution.LINEAR: "data/linear_s.csv",
     Distribution.RANDOM: "data/random_s.csv",
     Distribution.BINOMIAL: "data/binomial_s.csv",
     Distribution.POISSON: "data/poisson_s.csv",
@@ -40,6 +43,7 @@ storePath = {
 }
 
 toStorePath = {
+    Distribution.LINEAR: "data/linear_t.csv",
     Distribution.RANDOM: "data/random_t.csv",
     Distribution.BINOMIAL: "data/binomial_t.csv",
     Distribution.POISSON: "data/poisson_t.csv",
@@ -50,7 +54,11 @@ toStorePath = {
 
 # create data
 def create_data(distribution, data_size=SIZE):
-    if distribution == Distribution.RANDOM:
+    if distribution == Distribution.LINEAR:
+        weight = 1.0
+        bias = 4.0
+        data = [weight * i + bias for i in range(data_size)]
+    elif distribution == Distribution.RANDOM:
         data = random.sample(range(data_size * 2), data_size)
     elif distribution == Distribution.BINOMIAL:
         data = np.random.binomial(100, 0.5, size=data_size)
@@ -82,7 +90,11 @@ def create_data(distribution, data_size=SIZE):
 
 
 def create_data_storage(distribution, learning_percent=0.5, data_size=SIZE):
-    if distribution == Distribution.RANDOM:
+    if distribution == Distribution.LINEAR:
+        weight = 2.0
+        bias = 4.0
+        data = weight * random.sample(range(data_size * 2), data_size) + bias
+    elif distribution == Distribution.RANDOM:
         # 从指定序列中随机获取指定长度的片断
         data = random.sample(range(data_size * 2), data_size)
     elif distribution == Distribution.BINOMIAL:

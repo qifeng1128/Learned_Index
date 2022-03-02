@@ -44,6 +44,8 @@ class Parameter:
 
 # parameter pool
 class ParameterPool(Enum):
+    LINEAR = Parameter(stages=[1, 10, 100, 10, 1], cores=[[1, 1], [1, 1], [1, 1], [1, 1], [1, 1]], train_steps=[20000, 20000, 20000, 20000, 20000],
+                       batch_sizes=[50, 50, 50, 50, 50], learning_rates=[0.0001, 0.0001, 0.0001, 0.0001, 0.0001])
     RANDOM = Parameter(stages=[1, 10, 100, 10, 1], cores=[[1, 1], [1, 1], [1, 1], [1, 1], [1, 1]], train_steps=[20000, 20000, 20000, 20000, 20000],
                        batch_sizes=[50, 50, 50, 50, 50], learning_rates=[0.0001, 0.0001, 0.0001, 0.0001, 0.0001])
     LOGNORMAL = Parameter(stages=[1, 100, 100, 10, 1], cores=[[1, 16, 16, 1], [1, 8, 1]], train_steps=[2000, 400],
@@ -57,7 +59,9 @@ class ParameterPool(Enum):
 
 # initialize weight marrix
 def weight_variable(shape):
-    if DATA_TYPE == Distribution.RANDOM:
+    if DATA_TYPE == Distribution.LINEAR:
+        initial = tf.constant(0.1, shape=shape)
+    elif DATA_TYPE == Distribution.RANDOM:
         initial = tf.constant(0.1, shape=shape)
     elif DATA_TYPE == Distribution.LOGNORMAL:
         initial = tf.truncated_normal(shape=shape, stddev=0.1)

@@ -13,23 +13,20 @@ import time, gc, json
 import os, sys, getopt
 import numpy as np
 
-# Setting 
-BLOCK_SIZE = 100    # 一个block的大小
-TOTAL_NUMBER = 300000     # 总共所需存放的大小
-
 # data files
 filePath = {
+    Distribution.LINEAR: "data/linear.csv",
     Distribution.RANDOM: "data/random.csv",
     Distribution.BINOMIAL: "data/binomial.csv",
     Distribution.POISSON: "data/poisson.csv",
     Distribution.EXPONENTIAL: "data/exponential.csv",
     Distribution.NORMAL: "data/normal.csv",
     Distribution.LOGNORMAL: "data/lognormal.csv"
-
 }
 
 # result record path
 pathString = {
+    Distribution.LINEAR: "Linear",
     Distribution.RANDOM: "Random",
     Distribution.BINOMIAL: "Binomial",
     Distribution.POISSON: "Poisson",
@@ -40,12 +37,14 @@ pathString = {
 
 # threshold for train (judge whether stop train and replace with BTree)
 thresholdPool = {
+    Distribution.LINEAR: [1, 4, 4, 4, 4],
     Distribution.RANDOM: [1, 4, 4, 4, 4],
     Distribution.EXPONENTIAL: [55, 10000, 10000, 10000, 10000]
 }   
 
 # whether use threshold to stop train for models in stages
 useThresholdPool = {
+    Distribution.LINEAR: [False, False, False, False, False],
     Distribution.RANDOM: [True, False, False, False, False],
     Distribution.EXPONENTIAL: [True, False, False, False, False],
 }
@@ -69,21 +68,22 @@ def hybrid_training(threshold, use_threshold, stage, stage_nums, core_nums, trai
     for i in range(0, stage_length):
         print("the stage ", i, " is training")
         for j in range(0, stage_nums[i]):
-            if len(tmp_labels[i][j]) == 0:   # 这个模型中没有数据，直接跳过
+            TOTAL_NUMBER = len(tmp_inputs[i][j])    # 获取第i层stage第j个model中数据的数量
+            if TOTAL_NUMBER == 0:   # 这个模型中没有数据，直接跳过
                 continue
             inputs = tmp_inputs[i][j]
             labels = []
             test_labels = []
-            if i == 0:
-                # first stage, calculate how many models in next stage
-                divisor = stage_nums[i + 1] * 1.0 / (TOTAL_NUMBER / BLOCK_SIZE)
-                # 将label转换成对应的下一层stage个数
+            if i <= stage_length - 2:
+                # 此层中对应的位置 / 此层中总共的数据数量 * 下一层model的个数
+                divisor = stage_nums[i + 1] * 1.0 / TOTAL_NUMBER      # eg：此层共1000个数，下一层10个model，即前100个数应划分至下一层的第一个model
+                # 将label转换成对应的下一层所对应stage的位置
                 for k in tmp_labels[i][j]:
                     labels.append(int(k * divisor))
                 for k in test_data_y:
                     test_labels.append(int(k * divisor))
             else:
-                # 这里因为只有两层stage，所以在最后一层stage中无需将label转换成下一层stage的个数，只需为原始的label即可
+                # 在最后一层stage中，无需将label转换成下一层所对应stage的位置，只需为原始的label即可
                 labels = tmp_labels[i][j]
                 test_labels = test_data_y    
             # train model
@@ -138,7 +138,9 @@ def train_index(threshold, use_threshold, stage, distribution, path):
 
     set_data_type(distribution)
     # read parameter
-    if distribution == Distribution.RANDOM:
+    if distribution == Distribution.LINEAR:
+        parameter = ParameterPool.LINEAR.value
+    elif distribution == Distribution.RANDOM:
         parameter = ParameterPool.RANDOM.value
     elif distribution == Distribution.LOGNORMAL:
         parameter = ParameterPool.LOGNORMAL.value
@@ -150,7 +152,7 @@ def train_index(threshold, use_threshold, stage, distribution, path):
         return
     stage_set = parameter.stage_set
     # set number of models for the rest stage
-    stage_set[1] = int(round(data.shape[0] / 10000))    # (1 model deal with 10000 records)
+    stage_set[1] = int(round(data.shape[0] / 1000))    # (1 model deal with 1000 records)
     stage_set[2] = 10     # (1 model deal with 100 records)
     stage_set[3] = 10     # (1 model deal with 10 records)
     stage_set[4] = 1
@@ -169,7 +171,7 @@ def train_index(threshold, use_threshold, stage, distribution, path):
 
     # 对字典的key进行排序
     train_set_x = sorted(total_number.keys())
-    train_set_y = [i for i in range(len(total_number))]
+    train_set_y = [i + 5 for i in range(len(total_number))]
 
     TOTAL_NUMBER =  len(total_number)
 
@@ -216,8 +218,6 @@ def train_index(threshold, use_threshold, stage, distribution, path):
                     position += flag * off
                     flag = -flag
                     off += 1
-            if position != test_set_y[ind]:
-                print("error prediction:",pre)
     end_time = time.time()
     search_time = (end_time - start_time) / len(test_set_x)
     print("Search time %f " % search_time)
@@ -323,7 +323,9 @@ def sample_train(threshold, use_threshold, distribution, training_percent, path)
 
     set_data_type(distribution)
     #read parameters
-    if distribution == Distribution.RANDOM:
+    if distribution == Distribution.LINEAR:
+        parameter = ParameterPool.LINEAR.value
+    elif distribution == Distribution.RANDOM:
         parameter = ParameterPool.RANDOM.value
     elif distribution == Distribution.LOGNORMAL:
         parameter = ParameterPool.LOGNORMAL.value
@@ -434,7 +436,7 @@ def sample_train(threshold, use_threshold, distribution, training_percent, path)
 def show_help_message(msg):
     help_message = {'command': 'python Learned_BTree.py -t <Type> -d <Distribution> [-p|-n] [Percent]|[Number] [-c] [New data] [-h]',
                     'type': 'Type: sample, full',
-                    'distribution': 'Distribution: random, exponential',
+                    'distribution': 'Distribution: linear, random, exponential',
                     'percent': 'Percent: 0.1-1.0, default value = 0.5; sample train data size = 300,000',
                     'number': 'Number: 10,000-1,000,000, default value = 300,000',
                     'stage': 'Stage: 2-5, default value = 2',
@@ -478,7 +480,7 @@ def main(argv):
 
         # Parameters:
         # 'type': 'Type: sample, full',
-        # 'distribution': 'Distribution: random, exponential',
+        # 'distribution': 'Distribution: linear, random, exponential',
         # 'percent': 'Percent: 0.1-1.0, default value = 0.5; sample train data size = 300,000',
         # 'number': 'Number: 10,000-10,000,000, default value = 300,000',
         # 'new data' 'New Data: INTEGER, 0 for no creating new data file, others for creating'
@@ -497,7 +499,10 @@ def main(argv):
             if not is_type:
                 show_help_message('noTypeError')
                 return
-            if arg == "random":
+            if arg == "linear":
+                distribution = Distribution.LINEAR
+                is_distribution = True
+            elif arg == "random":
                 distribution = Distribution.RANDOM
                 is_distribution = True
             elif arg == "exponential":
@@ -570,6 +575,6 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    # args = ['-t', 'full', '-d', 'random', '-n', '10000', '-c', '1', '-s', '2']
-    main(sys.argv[1:])
-    # main(args)
+    args = ['-t', 'full', '-d', 'linear', '-n', '100000', '-c', '1', '-s', '2']
+    # main(sys.argv[1:])
+    main(args)
