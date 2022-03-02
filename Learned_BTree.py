@@ -201,8 +201,22 @@ def train_index(threshold, use_threshold, stage, distribution, path):
             if pre > stage_set[i + 1] - 1:
                 pre = stage_set[i + 1] - 1
         # predict the final stage position
-        pre = trained_index[stage - 1][pre].predict(test_set_x[ind])
-        err += abs(pre - test_set_y[ind])
+        if isinstance(trained_index[stage - 1][pre], BTree):      # 最后一层为 B-Tree
+            position, error_index = trained_index[stage - 1][pre].predict(test_set_x[ind])
+            err += abs(error_index)
+        else:   # 最后一层为 Learned Index
+            position = trained_index[stage - 1][pre].predict(test_set_x[ind])
+            err += abs(position - test_set_y[ind])
+            if position != test_set_y[ind]:
+                flag = 1
+                off = 1
+                # 从预测错误的位置，先向右寻找一位，再向左寻找两位，从而不断寻找左右两边的位置，直到找到正确的位置为止
+                while position != test_set_y[ind]:
+                    position += flag * off
+                    flag = -flag
+                    off += 1
+            if position != test_set_y[ind]:
+                print("error prediction:",pre)
     end_time = time.time()
     search_time = (end_time - start_time) / len(test_set_x)
     print("Search time %f " % search_time)
@@ -259,17 +273,8 @@ def train_index(threshold, use_threshold, stage, distribution, path):
     print("Calculate error")
     start_time = time.time()
     for ind in range(len(test_set_x)):
-        pre = bt.predict(test_set_x[ind])
-        err += abs(pre - test_set_y[ind])
-        if err != 0:
-            flag = 1
-            pos = pre
-            off = 1
-            # 从预测错误的位置，先向右寻找一位，再向左寻找两位，从而不断寻找左右两边的位置，直到找到正确的位置为止
-            while pos != test_set_y[ind]:
-                pos += flag * off
-                flag = -flag
-                off += 1            
+        pre, error_index = bt.predict(test_set_x[ind])
+        err += abs(error_index)
     end_time = time.time()
     search_time = (end_time - start_time) / len(test_set_x)
     print("Search time ", search_time)

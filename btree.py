@@ -89,7 +89,7 @@ class BTree:
         if a_node.items[search_result['nodeIndex']] is None:
             return -1
         # 获取对应节点item中的value值
-        return a_node.items[search_result['nodeIndex']].v
+        return a_node.items[search_result['nodeIndex']].v, search_result['nodeIndex']
 
     # c_node节点数据满了，将此节点的数据移至其他节点
     def split_child(self, p_node, i, c_node):
