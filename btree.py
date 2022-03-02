@@ -15,18 +15,18 @@ class BTreeNode:
         # 结点包含关键字的数量
         self.number = number
         # 关键字的值数组(个数为2d-1)
-        self.keys = [None] * (degree * 2 - 1)
+        self.items = [None] * (degree * 2 - 1)
         # 子结点数组(个数为2d)
         self.children = [None] * degree * 2
 
     def __str__(self):  # 通过字符串的形式直观展示b-tree节点中的内容
         returnStr = 'keys:['
         for i in range(self.number):
-            returnStr += str(self.keys[i]) + ' '
+            returnStr += str(self.items[i].k) + ' '
         returnStr += '];childrens:['
         for child in self.children:
             returnStr += str(child) + ';'
-        returnStr += ']\r\n'
+        returnStr += ']'
         return returnStr
 
     def diskread(self):  # 磁盘读取
@@ -70,9 +70,47 @@ class BTree:
     def __new_node(self):  # 创建新的btree结点
         return BTreeNode.allocate_node(self.D)
 
-    def insert(self, key):  # 插入新的关键字
+    def display(self):  # 打印树的内容
+        whole_tree = []
+        self.__display_in_concavo(self.root, whole_tree)
+        return whole_tree
+
+    def __display_in_concavo(self, pNode: BTreeNode, whole_tree):  # 打印树的内容
+        if pNode is not None:
+            # 将当前节点装入列表whole_tree中
+            whole_tree.append(pNode)
+            # 遍历所有的子节点
+            for i in range(pNode.number + 1):
+                self.__display_in_concavo(pNode.children[i], whole_tree)
+
+    def build(self, keys, values):     # 批量插入key和value，创建b-tree
+        # key和value数据个数不相等
+        if len(keys) != len(values):
+            return
+        for ind in range(len(keys)):
+            # 插入每组key和value
+            self.insert(Item(keys[ind], values[ind]))
+
+    def predict(self, key):     # 预测关键字是否存在，返回key对应的value值 以及 查找key产生的error
+        return self.__predict(self.root, Item(key, 0))
+
+    def __predict(self, pNode: BTreeNode, an_item):     # 预测关键字是否存在
+        i = 0
+        # 找到使an_item < pNode.items[i]成立的最小下标
+        while i < pNode.number and an_item > pNode.items[i]:
+            i += 1
+        if i < pNode.number and an_item == pNode.items[i]:
+            return pNode.items[i].v, i
+        else:
+            # 检查该结点是否为叶子节点，若为叶子节点，则不存在关键字
+            if pNode.isLeaf == True:     # b-tree不存在关键字，index返回-1
+                return 0, -1
+            else:  # 否则进入子树继续寻找
+                return self.__predict(pNode.children[i], an_item)
+
+    def insert(self, an_item):  # 插入新的关键字
         # 先查找树中是否存在这个关键字
-        if self.contain(key) == True:  # 树中已经存在关键字，则插入失败
+        if self.contain(an_item) == True:  # 树中已经存在关键字，则插入失败
             return False
         else:
             # 空树情况特殊处理
@@ -92,12 +130,12 @@ class BTree:
                 # 更新结点指针
                 self.root = pNode
             # b-tree未满，可继续插入新元素
-            self.__insert_non_full(self.root, key)
+            self.__insert_non_full(self.root, an_item)
             return True
 
-    def remove(self, key):   # 从b-tree中删除关键字
+    def remove(self, an_item):   # 从b-tree中删除关键字
         # 如果关键字不存在，则无法进行删除
-        if self.contain(key) == False:
+        if self.contain(an_item) == False:
             return False
         # 根节点只存在一个关键字的特殊情况
         if self.root.number == 1:
@@ -114,12 +152,12 @@ class BTree:
                     # 删除根节点，并将根节点设置为pChild1
                     self.__delete_node(self.root)
                     self.root = pChild1
-        #
-        self.__recursive_remove(self.root, key)
+        # 递归删除关键字
+        self.__recursive_remove(self.root, an_item)
         return True
 
-    def contain(self, key):  # 检查该关键字是否存在于b-tree中
-        self.__search(self.root, key)
+    def contain(self, an_item):  # 检查该关键字是否存在于b-tree中
+        self.__search(self.root, an_item)
 
     def clear(self):   # 清空b-tree
         # 递归删除树的所有子节点
@@ -140,23 +178,23 @@ class BTree:
         if pNode is not None:
             del pNode
 
-    def __search(self, pNode: BTreeNode, key):  # 查找关键字
+    def __search(self, pNode: BTreeNode, an_item):  # 查找关键字
         # 检测结点是否为空，若节点为空，则不存在关键字
         if pNode is None:
             return False
         else:
             i = 0
-            # 找到使key < pNode.keys[i]成立的最小下标
-            while i < pNode.number and key > pNode.keys[i]:
+            # 找到使key < pNode.items[i]成立的最小下标
+            while i < pNode.number and an_item > pNode.items[i]:
                 i += 1
-            if i < pNode.number and key == pNode.keys[i]:
+            if i < pNode.number and an_item == pNode.items[i]:
                 return True
             else:
                 # 检查该结点是否为叶子节点，若为叶子节点，则不存在关键字
                 if pNode.isLeaf == True:
                     return False
                 else:  # 否则进入子树继续寻找
-                    return self.__search(pNode.children[i], key)
+                    return self.__search(pNode.children[i], an_item)
 
     # 父节点pParent中第nChildIndex个子节点（即pChild）的关键字个数满了，其需进行分裂
     def __split_child(self, pParent: BTreeNode, nChildIndex, pChild: BTreeNode):
@@ -168,9 +206,9 @@ class BTree:
         # pChild节点中包含2d-1个关键字，分裂后的结点各包含前d-1和后d-1个关键字，中间的关键字移至父节点中
         for i in range(self.KEY_MIN):
             # 获取原结点pChild中后d-1个关键字，即[d,2d-2]
-            pRightNode.keys[i] = pChild.keys[i + self.CHILD_MIN]
+            pRightNode.items[i] = pChild.items[i + self.CHILD_MIN]
             # 将后d-1个关键字设置为空
-            pChild.keys[i + self.CHILD_MIN] = None
+            pChild.items[i + self.CHILD_MIN] = None
         # 如果不是叶子结点，需拷贝子结点，注意在拷贝完成后，需将其进行清空
         # pChild包含2d个子节点，分裂后各包含d个子节点
         if not pChild.isLeaf:
@@ -185,38 +223,38 @@ class BTree:
         # 将父结点中的pChildIndex后的所有关键字和子树指针向后移动，共 pParent.number - nChildIndex 个元素
         for i in range(pParent.number - 1, nChildIndex - 1, -1):
             pParent.children[i + 2] = pParent.children[i + 1]
-            pParent.keys[i + 1] = pParent.keys[i]
+            pParent.items[i + 1] = pParent.items[i]
         # 更新父结点的关键字个数
         pParent.number += 1
         # 存储右子树指针
         pParent.children[nChildIndex + 1] = pRightNode
         # 把结点的中间值提到父结点，即第d-1个元素
-        pParent.keys[nChildIndex] = pChild.keys[self.KEY_MIN]
+        pParent.items[nChildIndex] = pChild.items[self.KEY_MIN]
         # 将左子树的最后元素清空
-        pChild.keys[self.KEY_MIN] = None
+        pChild.items[self.KEY_MIN] = None
         pChild.diskwrite()
         pRightNode.diskwrite()
         pParent.diskwrite()
 
-    def __insert_non_full(self, pNode: BTreeNode, key):  # 在非满节点中插入关键字
+    def __insert_non_full(self, pNode: BTreeNode, an_item):  # 在非满节点中插入关键字
         # 获取结点内关键字个数
         i = pNode.number
         # 若pNode为叶子节点，直接在节点中找到位置插入即可
         if pNode.isLeaf == True:
             # 从后往前查找插入关键字的节点位置
-            while i > 0 and key < pNode.keys[i - 1]:
+            while i > 0 and an_item < pNode.items[i - 1]:
                 # 关键字向后移位
-                pNode.keys[i] = pNode.keys[i - 1]
+                pNode.items[i] = pNode.items[i - 1]
                 i -= 1
             # 插入关键字的值
-            pNode.keys[i] = key
+            pNode.items[i] = an_item
             # 更新结点关键字的个数
             pNode.number += 1
             pNode.diskwrite()
         # pNode是内部结点时，需找到插入关键字的下一层结点，并判断对应结点元素是否满了
         else:
             # 从后往前查找插入关键字的子树
-            while i > 0 and key < pNode.keys[i - 1]:
+            while i > 0 and an_item < pNode.items[i - 1]:
                 i -= 1
             # 目标子树结点指针
             pChild = pNode.children[i]
@@ -226,10 +264,10 @@ class BTree:
                 # 分裂子树结点
                 self.__split_child(pNode, i, pChild)
                 # 确定目标子树
-                if key > pNode.keys[i]:
+                if an_item > pNode.items[i]:
                     pChild = pNode.children[i + 1]
             # 插入关键字到目标子树结点
-            self.__insert_non_full(pChild, key)
+            self.__insert_non_full(pChild, an_item)
 
     # 将节点pParent第index个元素以及对应的两个子节点进行合并
     def __merge_child(self, pParent: BTreeNode, index):
@@ -239,10 +277,10 @@ class BTree:
         # 修改左节点的元素个数为 KEY_MAX
         pChild1.number = self.KEY_MAX
         # 将父结点第index个元素下移
-        pChild1.keys[self.KEY_MIN] = pParent.keys[index]
+        pChild1.items[self.KEY_MIN] = pParent.items[index]
         # 将右节点的值合并到左节点中
         for i in range(self.KEY_MIN):
-            pChild1.keys[i + self.KEY_MIN + 1] = pChild2.keys[i]
+            pChild1.items[i + self.KEY_MIN + 1] = pChild2.items[i]
         # 合并两个子节点的子节点
         if not pChild1.isLeaf:
             for i in range(self.CHILD_MIN):
@@ -250,27 +288,27 @@ class BTree:
         # 父结点删除第index个元素，并将index后的元素和子节点前移
         pParent.number -= 1
         for i in range(index, pParent.number):
-            pParent.keys[i] = pParent.keys[i + 1]
+            pParent.items[i] = pParent.items[i + 1]
             pParent.children[i + 1] = pParent.children[i + 2]
         # 将父节点中最后的元素和子节点清空
-        pParent.keys[pParent.number] = None
+        pParent.items[pParent.number] = None
         pParent.children[pParent.number + 1] = None
         # 删除pChild2
         self.__delete_node(pChild2)
 
-    def __recursive_remove(self, pNode: BTreeNode, key):   # 递归删除关键字
+    def __recursive_remove(self, pNode: BTreeNode, an_item):   # 递归删除关键字
         i = 0
-        while i < pNode.number and key > pNode.keys[i]:
+        while i < pNode.number and an_item > pNode.items[i]:
             i += 1
         # 关键字key在结点pNode中
-        if i < pNode.number and key == pNode.keys[i]:
+        if i < pNode.number and an_item == pNode.items[i]:
             # pNode是个叶结点
             if pNode.isLeaf == True:
                 # 直接从pNode中删除关键字
                 pNode.number -= 1
                 for j in range(i, pNode.number):
-                    pNode.keys[j] = pNode.keys[j + 1]
-                pNode.keys[pNode.number] = None
+                    pNode.items[j] = pNode.items[j + 1]
+                pNode.items[pNode.number] = None
                 return
             # pNode是个内结点
             else:
@@ -283,7 +321,7 @@ class BTree:
                     # 删除替换的关键字
                     self.__recursive_remove(pChildPrev, prevKey)
                     # 替换关键字
-                    pNode.keys[i] = prevKey
+                    pNode.items[i] = prevKey
                     return
                 # 右子节点中元素个数大于KEY_MIN，可获取替换的关键字
                 elif pChildNext.number > self.KEY_MIN:
@@ -292,14 +330,14 @@ class BTree:
                     # 删除替换的关键字
                     self.__recursive_remove(pChildNext, nextKey)
                     # 替换关键字
-                    pNode.keys[i] = nextKey
+                    pNode.items[i] = nextKey
                     return
                 # 左子节点和右子节点均只包含KEY_MIN个元素，需和父节点中的元素进行合并后，再删除关键字
                 else:
                     # 节点合并，所有元素均并入左子节点中
                     self.__merge_child(pNode, i)
                     # 从左子节点中删除关键字
-                    self.__recursive_remove(pChildPrev, key)
+                    self.__recursive_remove(pChildPrev, an_item)
         # 关键字key不在结点pNode中
         else:
             # 包含关键字的子树根结点
@@ -316,46 +354,82 @@ class BTree:
                 if pLeft is not None and pLeft.number > self.KEY_MIN:
                     # pChildNode中的元素向后移动一位
                     for j in range(pChildNode.number - 1,0,-1):
-                        pChildNode.keys[j] = pChildNode.keys[j - 1]
+                        pChildNode.items[j] = pChildNode.items[j - 1]
                     # 父结点中i-1的关键字下移至pChildNode中
-                    pChildNode.keys[0] = pNode.keys[i - 1]
+                    pChildNode.items[0] = pNode.items[i - 1]
                     pChildNode.number += 1
                     # 获取左兄弟节点中最大的元素
                     prevKey = self.predecessor(pLeft)
                     # 删除替换的关键字
                     self.__recursive_remove(pLeft, prevKey)
                     # 替换关键字
-                    pNode.keys[i - 1] = prevKey
+                    pNode.items[i - 1] = prevKey
 
                 # 右左兄弟节点中存在移动的元素
                 elif pRight is not None and pRight.number > self.KEY_MIN:
                     # 父结点中i的关键字下移至pChildNode中
-                    pChildNode.keys[pChildNode.number] = pNode.keys[i]
+                    pChildNode.items[pChildNode.number] = pNode.items[i]
                     pChildNode.number += 1
                     # 获取右兄弟节点中最小的元素
                     nextKey = self.successor(pRight)
                     # 删除替换的关键字
                     self.__recursive_remove(pRight, nextKey)
                     # 替换关键字
-                    pNode.keys[i] = nextKey
+                    pNode.items[i] = nextKey
                 # 左右兄弟结点都只包含KEY_MIN个元素
                 else:
                     # 将左右节点和父节点中的元素进行合并
                     self.__merge_child(pNode, i - 1)
                     pChildNode = pLeft
-            self.__recursive_remove(pChildNode, key)
+            self.__recursive_remove(pChildNode, an_item)
 
     def predecessor(self, pNode: BTreeNode):    # 获取左子节点中最大的元素
         # 左子节点的最右元素
         while not pNode.isLeaf:
             pNode = pNode.children[pNode.number]
-        return pNode.keys[pNode.number - 1]
+        return pNode.items[pNode.number - 1]
 
     def successor(self, pNode: BTreeNode):    # 获取右子节点中最小的元素
         # 右子节点的最左元素
         while not pNode.isLeaf:
             pNode = pNode.children[0]
-        return pNode.keys[0]
+        return pNode.items[0]
+
+# Value in Node
+class Item():
+    def __init__(self, k, v):
+        self.k = k
+        self.v = v
+
+    def __gt__(self, other):
+        if self.k > other.k:
+            return True
+        else:
+            return False
+
+    def __ge__(self, other):
+        if self.k >= other.k:
+            return True
+        else:
+            return False
+
+    def __eq__(self, other):
+        if self.k == other.k:
+            return True
+        else:
+            return False
+
+    def __le__(self, other):
+        if self.k <= other.k:
+            return True
+        else:
+            return False
+
+    def __lt__(self, other):
+        if self.k < other.k:
+            return True
+        else:
+            return False
 
 
 # For Test
@@ -400,10 +474,21 @@ def b_tree_main():
 def b_tree_test1():
     tree = BTree(2)
     for ind in range(8):
-        tree.insert(ind)
-    tree.remove(2)
-    tree.remove(9)
+        tree.insert(Item(ind,ind))
 
+    value,index = tree.predict(-1)
+    print(value)
+    print(index)
+
+    tempt = tree.display()
+
+    for the_tempt in tempt:
+        items = []
+        for i in range(the_tempt.number):
+            one_item = {"key": the_tempt.items[i].k, "value": the_tempt.items[i].v}
+            items.append(one_item)
+        tmp = {"isLeaf": the_tempt.isLeaf, "children": the_tempt.children, "items": items,"numberOfkeys": the_tempt.number}
+        print(tmp)
 
 if __name__ == '__main__':
     b_tree_test1()

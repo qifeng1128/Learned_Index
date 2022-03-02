@@ -168,7 +168,7 @@ def train_index(threshold, use_threshold, stage, distribution, path):
 
     global TOTAL_NUMBER
     TOTAL_NUMBER = data.shape[0]
-    total_number = {}
+    total_number = {}       # 存放key-value对的字典
     for i in range(data.shape[0]):
         total_number[data.iloc[i, 0]] = data.iloc[i, 1]
         #train_set_x.append(data.ix[i, 0])
@@ -209,18 +209,29 @@ def train_index(threshold, use_threshold, stage, distribution, path):
             if pre > stage_set[i + 1] - 1:
                 pre = stage_set[i + 1] - 1
         # predict the final stage position
-        position = trained_index[stage - 1][pre].predict(test_set_x[ind])
-        if position != test_set_y[ind]:
-            flag = 1
-            off = 1
-            # 从预测错误的位置，先向右寻找一位，再向左寻找两位，从而不断寻找左右两边的位置，直到找到正确的位置为止
-            while position != test_set_y[ind]:
-                position += flag * off
-                flag = -flag
-                off += 1
+        if isinstance(trained_index[stage - 1][pre], BTree):  # 最后一层为 B-Tree
+            # 预测关键字是否存在，以及在节点中遍历的error
+            value, error_index = trained_index[stage - 1][pre].predict(test_set_x[ind])
+            if error_index >= 0:
+                err += error_index
+            else:
+                print("We Can Not Find The Key!")
+        else:  # 最后一层为 Learned Index
+            position = trained_index[stage - 1][pre].predict(test_set_x[ind])
+            err += abs(position - test_set_y[ind])
+            if position != test_set_y[ind]:
+                flag = 1
+                off = 1
+                # 从预测错误的位置，先向右寻找一位，再向左寻找两位，从而不断寻找左右两边的位置，直到找到正确的位置为止
+                while position != test_set_y[ind]:
+                    position += flag * off
+                    flag = -flag
+                    off += 1
     end_time = time.time()
     search_time = (end_time - start_time) / len(test_set_x)
     print("Search time %f " % search_time)
+    mean_error = err * 1.0 / len(test_set_x)
+    print("mean error = ", mean_error)
     print("*************end Learned NN************\n\n")
     # write parameter into files
     result_stage1 = {0: {"weights": trained_index[0][0].weights, "bias": trained_index[0][0].bias}}
@@ -230,14 +241,14 @@ def train_index(threshold, use_threshold, stage, distribution, path):
             continue
         if isinstance(trained_index[1][ind], BTree):
             tmp_result = []
-            for ind, node in trained_index[1][ind].nodes.items():
-                item = {}
-                for ni in node.items:
-                    if ni is None:
-                        continue
-                    item = {"key": ni.k, "value": ni.v}
-                tmp = {"index": node.index, "isLeaf": node.isLeaf, "children": node.children, "items": item,
-                       "numberOfkeys": node.numberOfKeys}
+            tree_node = trained_index[1][ind].display()
+            for one_treenode in tree_node:
+                items = []
+                for i in range(one_treenode.number):
+                    one_item = {"key": one_treenode.items[i].k, "value": one_treenode.items[i].v}
+                    items.append(one_item)
+                tmp = {"isLeaf": one_treenode.isLeaf, "children": one_treenode.children, "items": items,
+                       "numberOfkeys": one_treenode.number}
                 tmp_result.append(tmp)
             result_stage2[ind] = tmp_result
         else:
@@ -264,30 +275,37 @@ def train_index(threshold, use_threshold, stage, distribution, path):
     bt = BTree(DEGREE)
     print("Start Build")
     start_time = time.time()
-    bt.build(test_set_x, test_set_y)
+    bt.build(test_set_x,test_set_y)
     end_time = time.time()
     build_time = end_time - start_time
     print("Build BTree time ", build_time)
     err = 0
     print("Calculate error")
     start_time = time.time()
-    for ind in range(len(test_set_x)):
-        pre = bt.predict(test_set_x[ind])
+    for the_set_x in test_set_x:
+        # 预测关键字是否存在，以及在节点中遍历的error
+        value, error_index = bt.predict(the_set_x)
+        if error_index >= 0:
+            err += error_index
+        else:
+            print("We Can Not Find The Key!")
     end_time = time.time()
     search_time = (end_time - start_time) / len(test_set_x)
     print("Search time ", search_time)
+    mean_error = err * 1.0 / len(test_set_x)
+    print("mean error = ", mean_error)
     print("*************end BTree************")
 
     # write BTree into files
     result = []
-    for ind, node in bt.nodes.items():
-        item = {}
-        for ni in node.items:
-            if ni is None:
-                continue
-            item = {"key": ni.k, "value": ni.v}
-        tmp = {"index": node.index, "isLeaf": node.isLeaf, "children": node.children, "items": item,
-               "numberOfkeys": node.numberOfKeys}
+    tree_node = bt.display()
+    for one_treenode in tree_node:
+        items = []
+        for i in range(one_treenode.number):
+            one_item = {"key": one_treenode.items[i].k, "value": one_treenode.items[i].v}
+            items.append(one_item)
+        tmp = {"isLeaf": one_treenode.isLeaf, "children": one_treenode.children, "items": items,
+               "numberOfkeys": one_treenode.number}
         result.append(tmp)
 
     with open("model/" + pathString[distribution] + "/full_train/BTree/" + str(TOTAL_NUMBER) + ".json",
@@ -569,6 +587,6 @@ def main(argv):
 
 
 if __name__ == "__main__":
-    args = ['-t', 'full', '-d', 'linear', '-n', '100000', '-c', '1', '-s', '2']
+    args = ['-t', 'full', '-d', 'linear', '-n', '1000', '-c', '1', '-s', '2']
     # main(sys.argv[1:])
     main(args)
