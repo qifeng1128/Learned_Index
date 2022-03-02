@@ -15,7 +15,7 @@ import numpy as np
 
 
 BLOCK_SIZE = 4096
-MAX_SUB_NUM = int(BLOCK_SIZE / 64)
+MAX_SUB_NUM = int(BLOCK_SIZE / 8)
 DEGREE = int((MAX_SUB_NUM + 1) / 2)
 
 # data files
@@ -42,16 +42,20 @@ pathString = {
 
 # threshold for train (judge whether stop train and replace with BTree)
 thresholdPool = {
-    Distribution.LINEAR: [1, 4, 4, 4, 4],
+    Distribution.LINEAR: [1, 2, 2, 2, 2],
     Distribution.RANDOM: [1, 4, 4, 4, 4],
-    Distribution.EXPONENTIAL: [55, 10000, 10000, 10000, 10000]
+    Distribution.EXPONENTIAL: [55, 10000, 10000, 10000, 10000],
+    Distribution.NORMAL: [10, 100, 100, 100, 100],
+    Distribution.LOGNORMAL: [55, 10000, 10000, 10000, 10000]
 }   
 
 # whether use threshold to stop train for models in stages
 useThresholdPool = {
-    Distribution.LINEAR: [False, False, False, False, False],
+    Distribution.LINEAR: [True, False, False, False, False],
     Distribution.RANDOM: [True, False, False, False, False],
     Distribution.EXPONENTIAL: [True, False, False, False, False],
+    Distribution.NORMAL: [True, False, False, False, False],
+    Distribution.LOGNORMAL: [True, False, False, False, False]
 }
 
 # hybrid training structure, 2 stages
@@ -157,7 +161,7 @@ def train_index(threshold, use_threshold, stage, distribution, path):
         return
     stage_set = parameter.stage_set
     # set number of models for the rest stage
-    stage_set[1] = int(round(data.shape[0] / 1000))    # (1 model deal with 1000 records)
+    stage_set[1] = 10   # (1 model deal with 1000 records)
     stage_set[2] = 10     # (1 model deal with 100 records)
     stage_set[3] = 10     # (1 model deal with 10 records)
     stage_set[4] = 1
@@ -256,16 +260,16 @@ def train_index(threshold, use_threshold, stage, distribution, path):
                                   "bias": trained_index[1][ind].weights}
     result = [{"stage": 1, "parameters": result_stage1}, {"stage": 2, "parameters": result_stage2}]
 
-    with open("model/" + pathString[distribution] + "/full_train/NN/" + str(TOTAL_NUMBER) + ".json", "wb") as jsonFile:
-        json.dump(result, jsonFile)
+    with open("model/" + pathString[distribution] + "/full_train/NN/" + str(TOTAL_NUMBER) + ".txt", "w") as f:
+        f.write(str(result))
 
     # wirte performance into files
     performance_NN = {"type": "NN", "build time": learn_time, "search time": search_time,
                       "store size": os.path.getsize(
-                          "model/" + pathString[distribution] + "/full_train/NN/" + str(TOTAL_NUMBER) + ".json")}
-    with open("performance/" + pathString[distribution] + "/full_train/NN/" + str(TOTAL_NUMBER) + ".json",
-              "wb") as jsonFile:
-        json.dump(performance_NN, jsonFile)
+                          "model/" + pathString[distribution] + "/full_train/NN/" + str(TOTAL_NUMBER) + ".txt")}
+    with open("performance/" + pathString[distribution] + "/full_train/NN/" + str(TOTAL_NUMBER) + ".txt",
+              "w") as f:
+        f.write(str(performance_NN))
 
     del trained_index
     gc.collect()
@@ -308,17 +312,17 @@ def train_index(threshold, use_threshold, stage, distribution, path):
                "numberOfkeys": one_treenode.number}
         result.append(tmp)
 
-    with open("model/" + pathString[distribution] + "/full_train/BTree/" + str(TOTAL_NUMBER) + ".json",
-              "wb") as jsonFile:
-        json.dump(result, jsonFile)
+    with open("model/" + pathString[distribution] + "/full_train/BTree/" + str(TOTAL_NUMBER) + ".txt",
+              "w") as f:
+        f.write(str(result))
 
     # write performance into files
     performance_BTree = {"type": "BTree", "build time": build_time, "search time": search_time,
                          "store size": os.path.getsize(
-                             "model/" + pathString[distribution] + "/full_train/BTree/" + str(TOTAL_NUMBER) + ".json")}
-    with open("performance/" + pathString[distribution] + "/full_train/BTree/" + str(TOTAL_NUMBER) + ".json",
-              "wb") as jsonFile:
-        json.dump(performance_BTree, jsonFile)
+                             "model/" + pathString[distribution] + "/full_train/BTree/" + str(TOTAL_NUMBER) + ".txt")}
+    with open("performance/" + pathString[distribution] + "/full_train/BTree/" + str(TOTAL_NUMBER) + ".txt",
+              "w") as f:
+        f.write(str(performance_BTree))
 
     del bt
     gc.collect()
@@ -326,7 +330,7 @@ def train_index(threshold, use_threshold, stage, distribution, path):
 
 # Main function for sample training
 # sample training 存在训练集和测试集的划分，即training_percent
-def sample_train(threshold, use_threshold, distribution, training_percent, path):
+def sample_train(threshold, use_threshold, stage, distribution, training_percent, path):
     data = pd.read_csv(path, header=None)
     train_set_x = []
     train_set_y = []
@@ -381,8 +385,8 @@ def sample_train(threshold, use_threshold, distribution, training_percent, path)
     print("Start Train")
     start_time = time.time()
     # 获得训练完的索引
-    trained_index = hybrid_training(threshold, use_threshold, stage_set, core_set, train_step_set, batch_size_set, learning_rate_set,
-                                    keep_ratio_set, train_set_x, train_set_y, test_set_x, test_set_y)
+    trained_index = hybrid_training(threshold, use_threshold, stage, stage_set, core_set, train_step_set, batch_size_set, learning_rate_set,
+                                    train_set_x, train_set_y, test_set_x, test_set_y)
     end_time = time.time()
     learn_time = end_time - start_time
     print("Build Learned NN time ", learn_time)
@@ -391,13 +395,31 @@ def sample_train(threshold, use_threshold, distribution, training_percent, path)
     start_time = time.time()
     # 用测试集的数据来计算learned index的误差以及查找时间
     for ind in range(len(test_set_x)):
-        # 第一层stage
-        pre1 = trained_index[0][0].predict(test_set_x[ind])
-        if pre1 > stage_set[1] - 1:
-            pre1 = stage_set[1] - 1
-        # 第二层stage
-        pre2 = trained_index[1][pre1].predict(test_set_x[ind])
-        err += abs(pre2 - test_set_y[ind])
+        pre = 0
+        for i in range(stage - 1):
+            # pick model in next stage
+            pre = trained_index[i][pre].predict(test_set_x[ind])
+            if pre > stage_set[i + 1] - 1:
+                pre = stage_set[i + 1] - 1
+        # predict the final stage position
+        if isinstance(trained_index[stage - 1][pre], BTree):  # 最后一层为 B-Tree
+            # 预测关键字是否存在，以及在节点中遍历的error
+            value, error_index = trained_index[stage - 1][pre].predict(test_set_x[ind])
+            if error_index >= 0:
+                err += error_index
+            else:
+                print("We Can Not Find The Key!")
+        else:  # 最后一层为 Learned Index
+            position = trained_index[stage - 1][pre].predict(test_set_x[ind])
+            err += abs(position - test_set_y[ind])
+            if position != test_set_y[ind]:
+                flag = 1
+                off = 1
+                # 从预测错误的位置，先向右寻找一位，再向左寻找两位，从而不断寻找左右两边的位置，直到找到正确的位置为止
+                while position != test_set_y[ind]:
+                    position += flag * off
+                    flag = -flag
+                    off += 1
     end_time = time.time()
     search_time = (end_time - start_time) / len(test_set_x)
     print("Search time ", search_time)
@@ -414,14 +436,14 @@ def sample_train(threshold, use_threshold, distribution, training_percent, path)
         # 判断stage是否为BTree类型，其为Btree结构
         if isinstance(trained_index[1][ind], BTree):
             tmp_result = []
-            for ind, node in trained_index[1][ind].nodes.items():
-                item = {}
-                for ni in node.items:
-                    if ni is None:
-                        continue
-                    item = {"key": ni.k, "value": ni.v}
-                tmp = {"index": node.index, "isLeaf": node.isLeaf, "children": node.children, "items": item,
-                       "numberOfkeys": node.numberOfKeys}
+            tree_node = trained_index[1][ind].display()
+            for one_treenode in tree_node:
+                items = []
+                for i in range(one_treenode.number):
+                    one_item = {"key": one_treenode.items[i].k, "value": one_treenode.items[i].v}
+                    items.append(one_item)
+                tmp = {"isLeaf": one_treenode.isLeaf, "children": one_treenode.children, "items": items,
+                       "numberOfkeys": one_treenode.number}
                 tmp_result.append(tmp)
             result_stage2[ind] = tmp_result
         else:
@@ -430,16 +452,16 @@ def sample_train(threshold, use_threshold, distribution, training_percent, path)
                                   "bias": trained_index[1][ind].bias}
     result = [{"stage": 1, "parameters": result_stage1}, {"stage": 2, "parameters": result_stage2}]
 
-    with open("model/" + pathString[distribution] + "/sample_train/NN/" + str(training_percent) + ".json",
-              "wb") as jsonFile:
-        json.dump(result, jsonFile)
+    with open("model/" + pathString[distribution] + "/full_train/NN/" + str(TOTAL_NUMBER) + ".txt", "w") as f:
+        f.write(str(result))
 
-    performance_NN = {"type": "NN", "build time": learn_time, "search time": search_time, "average error": mean_error,
+    # wirte performance into files
+    performance_NN = {"type": "NN", "build time": learn_time, "search time": search_time,
                       "store size": os.path.getsize(
-                          "model/" + pathString[distribution] + "/sample_train/NN/" + str(training_percent) + ".json")}
-    with open("performance/" + pathString[distribution] + "/sample_train/NN/" + str(training_percent) + ".json",
-              "wb") as jsonFile:
-        json.dump(performance_NN, jsonFile)
+                          "model/" + pathString[distribution] + "/full_train/NN/" + str(TOTAL_NUMBER) + ".txt")}
+    with open("performance/" + pathString[distribution] + "/full_train/NN/" + str(TOTAL_NUMBER) + ".txt",
+              "w") as f:
+        f.write(str(performance_NN))
 
     del trained_index
     gc.collect()
@@ -448,7 +470,7 @@ def sample_train(threshold, use_threshold, distribution, training_percent, path)
 def show_help_message(msg):
     help_message = {'command': 'python Learned_BTree.py -t <Type> -d <Distribution> [-p|-n] [Percent]|[Number] [-c] [New data] [-h]',
                     'type': 'Type: sample, full',
-                    'distribution': 'Distribution: linear, random, exponential',
+                    'distribution': 'Distribution: linear, random, exponential, normal, lognormal',
                     'percent': 'Percent: 0.1-1.0, default value = 0.5; sample train data size = 300,000',
                     'number': 'Number: 10,000-1,000,000, default value = 300,000',
                     'stage': 'Stage: 2-5, default value = 2',
@@ -520,6 +542,12 @@ def main(argv):
             elif arg == "exponential":
                 distribution = Distribution.EXPONENTIAL
                 is_distribution = True
+            elif arg == "normal":
+                distribution = Distribution.NORMAL
+                is_distribution = True
+            elif arg == "lognormal":
+                distribution = Distribution.LOGNORMAL
+                is_distribution = True
             else:
                 show_help_message('distribution')
                 return
@@ -581,12 +609,12 @@ def main(argv):
     if do_create:
         create_data(distribution, num)
     if is_sample:        
-        sample_train(thresholdPool[distribution], useThresholdPool[distribution], distribution, per, filePath[distribution])
+        sample_train(thresholdPool[distribution], useThresholdPool[distribution], stage, distribution, per, filePath[distribution])
     else:
         train_index(thresholdPool[distribution], useThresholdPool[distribution], stage, distribution, filePath[distribution])
 
 
 if __name__ == "__main__":
-    args = ['-t', 'full', '-d', 'linear', '-n', '1000', '-c', '1', '-s', '2']
+    args = ['-t', 'full', '-d', 'Lognormal', '-n', '10000', '-c', '1', '-s', '3']
     # main(sys.argv[1:])
     main(args)

@@ -1,0 +1,1 @@
+{'type': 'BTree', 'build time': 0.05698204040527344, 'search time': 3.097629547119141e-05, 'store size': 45831}

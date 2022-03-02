@@ -1,0 +1,1 @@
+{'type': 'NN', 'build time': 56.006328105926514, 'search time': 3.2543659210205076e-05, 'store size': 26866}
