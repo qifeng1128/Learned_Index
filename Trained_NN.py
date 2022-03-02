@@ -35,26 +35,25 @@ def memoize(func):
 
 # set parameter
 class Parameter:
-    def __init__(self, stages, cores, train_steps, batch_sizes, learning_rates, keep_ratios):
+    def __init__(self, stages, cores, train_steps, batch_sizes, learning_rates):
         self.stage_set = stages
         self.core_set = cores
         self.train_step_set = train_steps
         self.batch_size_set = batch_sizes
         self.learning_rate_set = learning_rates
-        self.keep_ratio_set = keep_ratios
 
 # parameter pool
 class ParameterPool(Enum):
     RANDOM = Parameter(stages=[1, 10, 100, 10, 1], cores=[[1, 1], [1, 1], [1, 1], [1, 1], [1, 1]], train_steps=[20000, 20000, 20000, 20000, 20000],
-                       batch_sizes=[50, 50, 50, 50, 50], learning_rates=[0.0001, 0.0001, 0.0001, 0.0001, 0.0001], keep_ratios=[1.0, 1.0, 1.0, 1.0, 1.0])
+                       batch_sizes=[50, 50, 50, 50, 50], learning_rates=[0.0001, 0.0001, 0.0001, 0.0001, 0.0001])
     LOGNORMAL = Parameter(stages=[1, 100, 100, 10, 1], cores=[[1, 16, 16, 1], [1, 8, 1]], train_steps=[2000, 400],
-                          batch_sizes=[100, 50], learning_rates=[0.0001, 0.001], keep_ratios=[1.0, 0.9])
+                          batch_sizes=[100, 50], learning_rates=[0.0001, 0.001])
     EXPONENTIAL = Parameter(stages=[1, 100, 100, 10, 1], cores=[[1, 8, 1], [1, 8, 1], [1, 8, 1], [1, 8, 1], [1, 8, 1]], train_steps=[30000, 20000, 20000, 20000, 20000],
-                            batch_sizes=[50, 50, 50, 50, 50], learning_rates=[0.0001, 0.001, 0.001, 0.001, 0.001], keep_ratios=[0.9, 1.0, 1.0, 1.0, 1.0])
+                            batch_sizes=[50, 50, 50, 50, 50], learning_rates=[0.0001, 0.001, 0.001, 0.001, 0.001])
     # EXPONENTIAL = Parameter(stages=[1, 100], cores=[[1, 16, 16, 1], [1, 8, 1]], train_steps=[20000, 300],
     #                       batch_sizes=[20, 50], learning_rates=[0.0001, 0.001], keep_ratios=[1.0, 1.0])
     NORMAL = Parameter(stages=[1, 100, 100, 10, 1], cores=[[1, 8, 1], [1, 8, 1]], train_steps=[20000, 300],
-                       batch_sizes=[50, 50], learning_rates=[0.0001, 0.001], keep_ratios=[0.9, 1.0])
+                       batch_sizes=[50, 50], learning_rates=[0.0001, 0.001])
 
 # initialize weight marrix
 def weight_variable(shape):
@@ -95,7 +94,7 @@ class AbstractNN:
 
 # Netural Network Model
 class TrainedNN:
-    def __init__(self, threshold, useThreshold, cores, train_step_num, batch_size, learning_rate, keep_ratio, train_x, train_y,
+    def __init__(self, threshold, useThreshold, cores, train_step_num, batch_size, learning_rate, train_x, train_y,
                  test_x, test_y):
         #set parameters
         if cores is None:
@@ -106,7 +105,6 @@ class TrainedNN:
         self.train_step_nums = train_step_num
         self.batch_size = batch_size
         self.learning_rate = learning_rate
-        self.keep_ratio = keep_ratio
         self.train_x = train_x
         self.train_y = train_y
         self.test_x = np.array([test_x]).T
@@ -122,9 +120,7 @@ class TrainedNN:
             self.w_fc.append(weight_variable([self.core_nums[i], self.core_nums[i + 1]]))
             self.b_fc.append(bias_variable([self.core_nums[i + 1]]))
         self.h_fc = [None for i in range(len(self.core_nums))]
-        self.h_fc_drop = [None for i in range(len(self.core_nums))]
-        self.h_fc_drop[0] = tf.placeholder(tf.float32, shape=[None, self.core_nums[0]])
-        self.keep_prob = tf.placeholder(tf.float32)
+        self.h_fc[0] = tf.placeholder(tf.float32, shape=[None, self.core_nums[0]])
 
     # get next batch of data
     def next_batch(self):
@@ -142,12 +138,10 @@ class TrainedNN:
     def train(self):
         for i in range(len(self.core_nums) - 1):
             # 全连接 + relu层
-            self.h_fc[i] = tf.nn.relu(tf.matmul(self.h_fc_drop[i], self.w_fc[i]) + self.b_fc[i])
-            # dropout层
-            self.h_fc_drop[i + 1] = tf.nn.dropout(self.h_fc[i], self.keep_prob)
+            self.h_fc[i + 1] = tf.matmul(self.h_fc[i], self.w_fc[i]) + self.b_fc[i]
 
         # 计算 cross_entropy 损失
-        self.cross_entropy = tf.reduce_mean(tf.losses.mean_squared_error(self.y_, self.h_fc[len(self.core_nums) - 2]))
+        self.cross_entropy = tf.reduce_mean(tf.losses.mean_squared_error(self.y_, self.h_fc[len(self.core_nums) - 1]))
         # adam 优化器
         self.train_step = tf.train.AdamOptimizer(self.learning_rate).minimize(self.cross_entropy)
         self.sess.run(tf.global_variables_initializer())
@@ -156,13 +150,11 @@ class TrainedNN:
         err_count = 0
         for step in range(0, self.train_step_nums):
             self.sess.run(self.train_step,
-                          feed_dict={self.h_fc_drop[0]: self.batch_x, self.y_: self.batch_y,
-                                     self.keep_prob: self.keep_ratio})            
+                          feed_dict={self.h_fc[0]: self.batch_x, self.y_: self.batch_y})
             # check every 100 steps
             if step % 100 == 0:
-                err = self.sess.run(self.cross_entropy, feed_dict={self.h_fc_drop[0]: np.array([self.train_x]).T,
-                                                                   self.y_: np.array([self.train_y]).T,
-                                                                   self.keep_prob: 1.0})
+                err = self.sess.run(self.cross_entropy, feed_dict={self.h_fc[0]: np.array([self.train_x]).T,
+                                                                   self.y_: np.array([self.train_y]).T})
                 print("cross_entropy: %f" % err)
                 if step == 0:
                     last_err = err 
@@ -181,9 +173,8 @@ class TrainedNN:
 
     # calculate mean error
     def cal_err(self):
-        mean_err = self.sess.run(self.cross_entropy, feed_dict={self.h_fc_drop[0]: np.array([self.train_x]).T,
-                                                                self.y_: np.array([self.train_y]).T,
-                                                                self.keep_prob: 1.0})
+        mean_err = self.sess.run(self.cross_entropy, feed_dict={self.h_fc[0]: np.array([self.train_x]).T,
+                                                                self.y_: np.array([self.train_y]).T})
         return mean_err
 
     # save model
@@ -195,16 +186,14 @@ class TrainedNN:
     def get_weights(self):
         weights = []
         for i in range(len(self.core_nums) - 1):
-            weights.append(self.sess.run(self.w_fc[i], feed_dict={self.h_fc_drop[0]: np.array([self.train_x]).T,
-                                                                       self.y_: np.array([self.train_y]).T,
-                                                                       self.keep_prob: 1.0}).tolist())
+            weights.append(self.sess.run(self.w_fc[i], feed_dict={self.h_fc[0]: np.array([self.train_x]).T,
+                                                                       self.y_: np.array([self.train_y]).T}).tolist())
         return weights
 
     # get bias matrix
     def get_bias(self):
         bias = []
         for i in range(len(self.core_nums) - 1):
-            bias.append(self.sess.run(self.b_fc[i], feed_dict={self.h_fc_drop[0]: np.array([self.train_x]).T,
-                                                                    self.y_: np.array([self.train_y]).T,
-                                                                    self.keep_prob: 1.0}).tolist())
+            bias.append(self.sess.run(self.b_fc[i], feed_dict={self.h_fc[0]: np.array([self.train_x]).T,
+                                                                    self.y_: np.array([self.train_y]).T}).tolist())
         return bias

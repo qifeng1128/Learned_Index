@@ -54,7 +54,7 @@ useThresholdPool = {
 # threshold 用于模型训练的早停以及判断是否用b-tree来替代最后一层的learned index
 # use_threshold 用于表示是否使用threshold来进行模型训练的早停
 def hybrid_training(threshold, use_threshold, stage, stage_nums, core_nums, train_step_nums, batch_size_nums, learning_rate_nums,
-                    keep_ratio_nums, train_data_x, train_data_y, test_data_x, test_data_y):
+                    train_data_x, train_data_y, test_data_x, test_data_y):
     # stage_nums 为一个列表，存储着每个 stage 中 model 的个数
     stage_length = stage      # stage_length 表示 stage 的个数
     # initial
@@ -67,6 +67,7 @@ def hybrid_training(threshold, use_threshold, stage, stage_nums, core_nums, trai
     tmp_labels[0][0] = train_data_y
     test_inputs = test_data_x
     for i in range(0, stage_length):
+        print("the stage ", i, " is training")
         for j in range(0, stage_nums[i]):
             if len(tmp_labels[i][j]) == 0:   # 这个模型中没有数据，直接跳过
                 continue
@@ -86,9 +87,10 @@ def hybrid_training(threshold, use_threshold, stage, stage_nums, core_nums, trai
                 labels = tmp_labels[i][j]
                 test_labels = test_data_y    
             # train model
+            print("the model ",j," is training")
             tmp_index = TrainedNN(threshold[i], use_threshold[i], core_nums[i], train_step_nums[i], batch_size_nums[i],
                                     learning_rate_nums[i],
-                                    keep_ratio_nums[i], inputs, labels, test_inputs, test_labels)            
+                                    inputs, labels, test_inputs, test_labels)
             tmp_index.train()      
             # get parameters in model (weight matrix and bias matrix)      
             index[i][j] = AbstractNN(tmp_index.get_weights(), tmp_index.get_bias(), core_nums[i], tmp_index.cal_err())
@@ -156,7 +158,6 @@ def train_index(threshold, use_threshold, stage, distribution, path):
     train_step_set = parameter.train_step_set
     batch_size_set = parameter.batch_size_set
     learning_rate_set = parameter.learning_rate_set
-    keep_ratio_set = parameter.keep_ratio_set
 
     global TOTAL_NUMBER
     TOTAL_NUMBER = data.shape[0]
@@ -185,7 +186,7 @@ def train_index(threshold, use_threshold, stage, distribution, path):
     start_time = time.time()
     # train index
     trained_index = hybrid_training(threshold, use_threshold, stage, stage_set, core_set, train_step_set, batch_size_set, learning_rate_set,
-                                    keep_ratio_set, train_set_x, train_set_y, [], [])
+                                    train_set_x, train_set_y, [], [])
     end_time = time.time()
     learn_time = end_time - start_time
     print("Build Learned NN time ", learn_time)
