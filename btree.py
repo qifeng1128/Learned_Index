@@ -27,20 +27,6 @@ class BTreeNode:
         returnStr += ']'
         return returnStr
 
-    def diskread(self,disk_count):  # 磁盘读取
-        # f = open("D:/Downloads/PycharmProjects/chapter18/tempt_read.txt", 'r')
-        # tempt = f.readline()
-        # f.close()
-        disk_count = disk_count + 1
-        return disk_count
-
-    def diskwrite(self,disk_count):  # 磁盘写入
-        # f = open("D:/Downloads/PycharmProjects/chapter18/tempt_write.txt", 'w')
-        # f.write("111")
-        # f.close()
-        disk_count = disk_count + 1
-        return disk_count
-
     @classmethod
     def allocate_node(self, degree):  # 为一个新结点分配一个磁盘页
         '''
@@ -64,8 +50,6 @@ class BTree:
         self.CHILD_MIN = self.KEY_MIN + 1
         # 根结点
         self.root: BTreeNode = None
-        # 磁盘读写的次数
-        self.disk_count = 0
 
     def __new_node(self):  # 创建新的btree结点
         return BTreeNode.allocate_node(self.D)
@@ -77,7 +61,6 @@ class BTree:
 
     def __display_in_concavo(self, pNode: BTreeNode, whole_tree):  # 打印树的内容
         if pNode is not None:
-            self.disk_count = pNode.diskread(self.disk_count)
             # 将当前节点装入列表whole_tree中
             whole_tree.append(pNode)
             # 遍历所有的子节点
@@ -97,7 +80,6 @@ class BTree:
 
     def __predict(self, pNode: BTreeNode, an_item):     # 预测关键字是否存在
         i = 0
-        self.disk_count = pNode.diskread(self.disk_count)
         # 找到使an_item < pNode.items[i]成立的最小下标
         while i < pNode.number and an_item > pNode.items[i]:
             i += 1
@@ -196,7 +178,6 @@ class BTree:
             return False
         else:
             i = 0
-            self.disk_count = pNode.diskread(self.disk_count)
             # 找到使key < pNode.items[i]成立的最小下标
             while i < pNode.number and an_item > pNode.items[i]:
                 i += 1
@@ -245,10 +226,6 @@ class BTree:
         pParent.items[nChildIndex] = pChild.items[self.KEY_MIN]
         # 将左子树的最后元素清空
         pChild.items[self.KEY_MIN] = None
-        # 将分裂后父节点以及两个子节点写入磁盘中
-        self.disk_count = pChild.diskwrite(self.disk_count)
-        self.disk_count = pRightNode.diskwrite(self.disk_count)
-        self.disk_count = pParent.diskwrite(self.disk_count)
 
     def __insert_non_full(self, pNode: BTreeNode, an_item):  # 在非满节点中插入关键字
         # 获取结点内关键字个数
@@ -264,7 +241,6 @@ class BTree:
             pNode.items[i] = an_item
             # 更新结点关键字的个数
             pNode.number += 1
-            self.disk_count = pNode.diskwrite(self.disk_count)
         # pNode是内部结点时，需找到插入关键字的下一层结点，并判断对应结点元素是否满了
         else:
             # 从后往前查找插入关键字的子树
@@ -287,10 +263,6 @@ class BTree:
         # 获取合并的两个子节点
         pChild1 = pParent.children[index]
         pChild2 = pParent.children[index + 1]
-        '''
-        调用merge函数时，由于其中一个子节点在判断是否含有关键字时，已经磁盘读取了，所以磁盘仅需再读取一个子节点即可
-        '''
-        self.disk_count = pChild1.diskread(self.disk_count)
         # 修改左节点的元素个数为 KEY_MAX
         pChild1.number = self.KEY_MAX
         # 将父结点第index个元素下移
@@ -310,9 +282,6 @@ class BTree:
         # 将父节点中最后的元素和子节点清空
         pParent.items[pParent.number] = None
         pParent.children[pParent.number + 1] = None
-        # 磁盘写入父节点以及合并后的子节点
-        # 由于两个子节点合并后，需对子节点进行删除关键字操作，因此将子节点的磁盘写入放着merge函数外
-        self.disk_count = pParent.diskwrite(self.disk_count)
         # 删除pChild2
         self.__delete_node(pChild2)
 
@@ -329,15 +298,11 @@ class BTree:
                 for j in range(i, pNode.number):
                     pNode.items[j] = pNode.items[j + 1]
                 pNode.items[pNode.number] = None
-                # 写入磁盘
-                self.disk_count = pNode.diskwrite(self.disk_count)
                 return
             # pNode是个内结点
             else:
                 pChildPrev = pNode.children[i]          # 节点pNode的左子节点
                 pChildNext = pNode.children[i + 1]      # 节点pNode的右子节点
-                self.disk_count = pChildPrev.diskread(self.disk_count)
-                self.disk_count = pChildNext.diskread(self.disk_count)
                 # 左子节点中元素个数大于KEY_MIN，可获取替换的关键字
                 if pChildPrev.number > self.KEY_MIN:
                     # 获取比key小的最大关键字（即前驱关键字）
@@ -346,7 +311,6 @@ class BTree:
                     self.__recursive_remove(pChildPrev, prevKey)
                     # 替换关键字
                     pNode.items[i] = prevKey
-                    self.disk_count = pNode.diskwrite(self.disk_count)
                     return
                 # 右子节点中元素个数大于KEY_MIN，可获取替换的关键字
                 elif pChildNext.number > self.KEY_MIN:
@@ -356,7 +320,6 @@ class BTree:
                     self.__recursive_remove(pChildNext, nextKey)
                     # 替换关键字
                     pNode.items[i] = nextKey
-                    self.disk_count = pNode.diskwrite(self.disk_count)
                     return
                 # 左子节点和右子节点均只包含KEY_MIN个元素，需和父节点中的元素进行合并后，再删除关键字
                 else:
@@ -364,7 +327,6 @@ class BTree:
                     self.__merge_child(pNode, i)
                     # 从左子节点中删除关键字
                     self.__recursive_remove(pChildPrev, an_item)
-                    self.disk_count = pNode.diskwrite(self.disk_count)
         # 关键字key不在结点pNode中
         else:
             # 包含关键字的子树根结点
@@ -384,10 +346,6 @@ class BTree:
                         pLeft = pNode.children[i - 1]
                     if i < pNode.number:
                         pRight = pNode.children[i + 1]
-                    if pLeft is not None:
-                        self.disk_count = pLeft.diskread(self.disk_count)
-                    if pRight is not None:
-                        self.disk_count = pRight.diskread(self.disk_count)
                     # 左兄弟节点中存在移动的元素
                     if pLeft is not None and pLeft.number > self.KEY_MIN:
                         # pChildNode中的元素向后移动一位
@@ -402,7 +360,6 @@ class BTree:
                         self.__recursive_remove(pLeft, prevKey)
                         # 替换关键字
                         pNode.items[i - 1] = prevKey
-                        self.disk_count = pNode.diskwrite(self.disk_count)
                     # 右左兄弟节点中存在移动的元素
                     elif pRight is not None and pRight.number > self.KEY_MIN:
                         # 父结点中i的关键字下移至pChildNode中
@@ -414,26 +371,25 @@ class BTree:
                         self.__recursive_remove(pRight, nextKey)
                         # 替换关键字
                         pNode.items[i] = nextKey
-                        self.disk_count = pNode.diskwrite(self.disk_count)
                     # 左右兄弟结点都只包含KEY_MIN个元素
-                    else:
-                        # 将左右节点和父节点中的元素进行合并
+                    elif pLeft is not None:
                         self.__merge_child(pNode, i - 1)
                         pChildNode = pLeft
+                    # 与右兄弟合并
+                    elif pRight is not None:
+                        self.__merge_child(pNode, i)
             self.__recursive_remove(pChildNode, an_item)
 
     def predecessor(self, pNode: BTreeNode):    # 获取左子节点中最大的元素
         # 左子节点的最右元素
         while not pNode.isLeaf:
             pNode = pNode.children[pNode.number]
-            self.disk_count = pNode.diskread(self.disk_count)
         return pNode.items[pNode.number - 1]
 
     def successor(self, pNode: BTreeNode):    # 获取右子节点中最小的元素
         # 右子节点的最左元素
         while not pNode.isLeaf:
             pNode = pNode.children[0]
-            self.disk_count = pNode.diskread(self.disk_count)
         return pNode.items[0]
 
 # Value in Node
@@ -506,39 +462,37 @@ def b_tree_main():
 
     end_time = time.time()
     search_time_without_disk = (end_time - start_time) / len(test_set_x)
-    search_time_with_disk = (end_time - start_time + 0.00014 * tree.disk_count) / len(test_set_x)
     print("Search time without disk", search_time_without_disk)
-    print("Search time with disk", search_time_with_disk)
     print("*************end BTree************")
 
 
 def b_tree_test1():
-    tree = BTree(2)
-    for ind in range(10):
+    tree = BTree(256)
+    print("start")
+    start_time = time.time()
+    for ind in range(1000000):
         tree.insert(Item(ind,ind))
-    tree.remove(Item(2,2))
-    print(tree.disk_count)
-    value,index = tree.predict(-1)
-    print(value)
-    print(index)
+    end_time = time.time()
 
-    tempt = tree.display()
-
-    final_result = []
-    for the_tempt in tempt:
-        items = []
-        for i in range(the_tempt.number):
-            one_item = {"key": the_tempt.items[i].k, "value": the_tempt.items[i].v}
-            items.append(one_item)
-        tmp = {"isLeaf": the_tempt.isLeaf, "children": the_tempt.children, "items": items,"numberOfkeys": the_tempt.number}
-        final_result.append(tmp)
+    print(end_time - start_time)
+    # tree.remove(Item(2,2))
+    # value,index = tree.predict(-1)
+    # print(value)
+    # print(index)
+    #
+    # tempt = tree.display()
+    #
+    # final_result = []
+    # for the_tempt in tempt:
+    #     items = []
+    #     for i in range(the_tempt.number):
+    #         one_item = {"key": the_tempt.items[i].k, "value": the_tempt.items[i].v}
+    #         items.append(one_item)
+    #     tmp = {"isLeaf": the_tempt.isLeaf, "children": the_tempt.children, "items": items,"numberOfkeys": the_tempt.number}
+    #     final_result.append(tmp)
 
     # with open("test.txt", "w") as f:
     #     f.write(str(final_result))
 
 if __name__ == '__main__':
     b_tree_test1()
-    BLOCK_SIZE = 4096
-    MAX_SUB_NUM = int(BLOCK_SIZE / 8)
-    DEGREE = int((MAX_SUB_NUM + 1) / 2)
-    print(DEGREE)

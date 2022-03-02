@@ -7,7 +7,7 @@ import numpy as np
 import csv
 import random
 
-SIZE = 100000
+SIZE = 1000000
 BLOCK_SIZE = 100
 
 # 生成数据的分布可以为随机、伯努利、泊松、指数、均匀、对数均匀
@@ -22,34 +22,13 @@ class Distribution(Enum):
 
 # store path
 filePath = {
-    Distribution.LINEAR: "data/linear.csv",
-    Distribution.RANDOM: "data/random.csv",
-    Distribution.BINOMIAL: "data/binomial.csv",
-    Distribution.POISSON: "data/poisson.csv",
-    Distribution.EXPONENTIAL: "data/exponential.csv",
-    Distribution.NORMAL: "data/normal.csv",
-    Distribution.LOGNORMAL: "data/lognormal.csv"
-}
-
-# path for storage optimization
-storePath = {
-    Distribution.LINEAR: "data/linear_s.csv",
-    Distribution.RANDOM: "data/random_s.csv",
-    Distribution.BINOMIAL: "data/binomial_s.csv",
-    Distribution.POISSON: "data/poisson_s.csv",
-    Distribution.EXPONENTIAL: "data/exponential_s.csv",
-    Distribution.NORMAL: "data/normal_s.csv",
-    Distribution.LOGNORMAL: "data/lognormal_s.csv"
-}
-
-toStorePath = {
-    Distribution.LINEAR: "data/linear_t.csv",
-    Distribution.RANDOM: "data/random_t.csv",
-    Distribution.BINOMIAL: "data/binomial_t.csv",
-    Distribution.POISSON: "data/poisson_t.csv",
-    Distribution.EXPONENTIAL: "data/exponential_t.csv",
-    Distribution.NORMAL: "data/normal_t.csv",
-    Distribution.LOGNORMAL: "data/lognormal_t.csv"
+    Distribution.LINEAR: "linear.csv",
+    Distribution.RANDOM: "random.csv",
+    Distribution.BINOMIAL: "binomial.csv",
+    Distribution.POISSON: "poisson.csv",
+    Distribution.EXPONENTIAL: "exponential.csv",
+    Distribution.NORMAL: "normal.csv",
+    Distribution.LOGNORMAL: "lognormal.csv"
 }
 
 # create data
@@ -75,97 +54,13 @@ def create_data(distribution, data_size=SIZE):
     with open(res_path, 'w') as csvFile:
         csv_writer = csv.writer(csvFile)
         i = 0
-        if distribution == Distribution.EXPONENTIAL:
-            for d in data:
-                csv_writer.writerow([int(d * 10000000), 1.0 * i / BLOCK_SIZE])
-                i += 1
-        elif distribution == Distribution.LOGNORMAL:
-            for d in data:
-                csv_writer.writerow([int(d * 10000), 1.0 * i / BLOCK_SIZE])
-                i += 1
-        else:
-            for d in data:
-                csv_writer.writerow([int(d), 1.0 * i / BLOCK_SIZE])
-                i += 1
-
-
-def create_data_storage(distribution, learning_percent=0.5, data_size=SIZE):
-    if distribution == Distribution.LINEAR:
-        weight = 2.0
-        bias = 4.0
-        data = weight * random.sample(range(data_size * 2), data_size) + bias
-    elif distribution == Distribution.RANDOM:
-        # 从指定序列中随机获取指定长度的片断
-        data = random.sample(range(data_size * 2), data_size)
-    elif distribution == Distribution.BINOMIAL:
-        data = np.random.binomial(100, 0.5, size=data_size)
-    elif distribution == Distribution.POISSON:
-        data = np.random.poisson(6, size=data_size)
-    elif distribution == Distribution.EXPONENTIAL:
-        data = np.random.exponential(10, size=data_size)
-    elif distribution == Distribution.LOGNORMAL:
-        data = np.random.lognormal(0, 2, data_size)
-    else:
-        data = np.random.normal(1000, 100, size=data_size)
-    store_path = storePath[distribution]
-    to_store_path = toStorePath[distribution]
-    data.sort()
-    store_bits = []
-    if learning_percent == 0.8:
-        for i in range(data_size):
-            store_bits.append(random.randint(0, 4))
-    else:
-        for i in range(data_size):
-            store_bits.append(random.randint(0, int(1.0 / learning_percent) - 1))
-    i = 0
-    insert_data = []
-    with open(store_path, 'w') as csvFile:
-        csv_writer = csv.writer(csvFile)
-        #deal with sample training and storage optimization
-        if distribution == Distribution.EXPONENTIAL:
-            if learning_percent == 0.8:
-                for ind in range(data_size):
-                    din = int(data[ind] * 10000000)
-                    if store_bits[ind] != 0:                        
-                        csv_writer.writerow([din, 1.0 * i / BLOCK_SIZE])
-                        i += 1
-                    else:
-                        insert_data.append(din)
-            else:
-                for ind in range(data_size):
-                    din = int(data[ind] * 10000000)
-                    if store_bits[ind] == 0:                        
-                        csv_writer.writerow([din, 1.0 * i / BLOCK_SIZE])
-                        i += 1
-                    else:
-                        insert_data.append(din)
-        elif distribution == Distribution.LOGNORMAL:
-            for d in data:
-                din = int(d * 10000)
-        else:
-            if learning_percent == 0.8:
-                for ind in range(data_size):
-                    din = int(data[ind])
-                    if store_bits[ind] != 0:                        
-                        csv_writer.writerow([din, 1.0 * i / BLOCK_SIZE])
-                        i += 1
-                    else:
-                        insert_data.append(din)
-            else:
-                for ind in range(data_size):
-                    din = int(data[ind])
-                    if store_bits[ind] == 0:                        
-                        csv_writer.writerow([din, 1.0 * i / BLOCK_SIZE])
-                        i += 1
-                    else:
-                        insert_data.append(din)
-    random.shuffle(insert_data) 
-    with open(to_store_path, 'w') as csvFile:
-        csv_writer = csv.writer(csvFile)
-        for din in insert_data:
-            csv_writer.writerow([din])
-
+        for d in data:
+            csv_writer.writerow([d, 1.0 * i / BLOCK_SIZE])
+            i += 1
 
 if __name__ == "__main__":
+    create_data(Distribution.EXPONENTIAL)
+    create_data(Distribution.LINEAR)
+    create_data(Distribution.LOGNORMAL)
+    create_data(Distribution.NORMAL)
     create_data(Distribution.RANDOM)
-    # create_data_storage(Distribution.RANDOM)
