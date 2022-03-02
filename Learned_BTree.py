@@ -13,6 +13,11 @@ import time, gc, json
 import os, sys, getopt
 import numpy as np
 
+
+BLOCK_SIZE = 102400
+MAX_SUB_NUM = int(BLOCK_SIZE / 196)
+DEGREE = int((MAX_SUB_NUM + 1) / 2)
+
 # data files
 filePath = {
     Distribution.LINEAR: "data/linear.csv",
@@ -121,7 +126,7 @@ def hybrid_training(threshold, use_threshold, stage, stage_nums, core_nums, trai
             # replace model with BTree if mean error > threshold
             print("Using BTree")
             # 构建Btree并插入数据
-            index[stage_length - 1][i] = BTree(2)
+            index[stage_length - 1][i] = BTree(DEGREE)
             index[stage_length - 1][i].build(tmp_inputs[stage_length - 1][i], tmp_labels[stage_length - 1][i])
     return index
 
@@ -171,7 +176,7 @@ def train_index(threshold, use_threshold, stage, distribution, path):
 
     # 对字典的key进行排序
     train_set_x = sorted(total_number.keys())
-    train_set_y = [i + 5 for i in range(len(total_number))]
+    train_set_y = [i + 1 for i in range(len(total_number))]
 
     TOTAL_NUMBER =  len(total_number)
 
@@ -204,25 +209,18 @@ def train_index(threshold, use_threshold, stage, distribution, path):
             if pre > stage_set[i + 1] - 1:
                 pre = stage_set[i + 1] - 1
         # predict the final stage position
-        if isinstance(trained_index[stage - 1][pre], BTree):      # 最后一层为 B-Tree
-            position, error_index = trained_index[stage - 1][pre].predict(test_set_x[ind])
-            err += abs(error_index)
-        else:   # 最后一层为 Learned Index
-            position = trained_index[stage - 1][pre].predict(test_set_x[ind])
-            err += abs(position - test_set_y[ind])
-            if position != test_set_y[ind]:
-                flag = 1
-                off = 1
-                # 从预测错误的位置，先向右寻找一位，再向左寻找两位，从而不断寻找左右两边的位置，直到找到正确的位置为止
-                while position != test_set_y[ind]:
-                    position += flag * off
-                    flag = -flag
-                    off += 1
+        position = trained_index[stage - 1][pre].predict(test_set_x[ind])
+        if position != test_set_y[ind]:
+            flag = 1
+            off = 1
+            # 从预测错误的位置，先向右寻找一位，再向左寻找两位，从而不断寻找左右两边的位置，直到找到正确的位置为止
+            while position != test_set_y[ind]:
+                position += flag * off
+                flag = -flag
+                off += 1
     end_time = time.time()
     search_time = (end_time - start_time) / len(test_set_x)
     print("Search time %f " % search_time)
-    mean_error = err * 1.0 / len(test_set_x)
-    print("mean error = ", mean_error)
     print("*************end Learned NN************\n\n")
     # write parameter into files
     result_stage1 = {0: {"weights": trained_index[0][0].weights, "bias": trained_index[0][0].bias}}
@@ -251,7 +249,7 @@ def train_index(threshold, use_threshold, stage, distribution, path):
         json.dump(result, jsonFile)
 
     # wirte performance into files
-    performance_NN = {"type": "NN", "build time": learn_time, "search time": search_time, "average error": mean_error,
+    performance_NN = {"type": "NN", "build time": learn_time, "search time": search_time,
                       "store size": os.path.getsize(
                           "model/" + pathString[distribution] + "/full_train/NN/" + str(TOTAL_NUMBER) + ".json")}
     with open("performance/" + pathString[distribution] + "/full_train/NN/" + str(TOTAL_NUMBER) + ".json",
@@ -263,7 +261,7 @@ def train_index(threshold, use_threshold, stage, distribution, path):
     
     # build BTree index
     print("*************start BTree************")
-    bt = BTree(2)
+    bt = BTree(DEGREE)
     print("Start Build")
     start_time = time.time()
     bt.build(test_set_x, test_set_y)
@@ -274,13 +272,10 @@ def train_index(threshold, use_threshold, stage, distribution, path):
     print("Calculate error")
     start_time = time.time()
     for ind in range(len(test_set_x)):
-        pre, error_index = bt.predict(test_set_x[ind])
-        err += abs(error_index)
+        pre = bt.predict(test_set_x[ind])
     end_time = time.time()
     search_time = (end_time - start_time) / len(test_set_x)
     print("Search time ", search_time)
-    mean_error = err * 1.0 / len(test_set_x)
-    print("mean error = ", mean_error)
     print("*************end BTree************")
 
     # write BTree into files
@@ -301,7 +296,6 @@ def train_index(threshold, use_threshold, stage, distribution, path):
 
     # write performance into files
     performance_BTree = {"type": "BTree", "build time": build_time, "search time": search_time,
-                         "average error": mean_error,
                          "store size": os.path.getsize(
                              "model/" + pathString[distribution] + "/full_train/BTree/" + str(TOTAL_NUMBER) + ".json")}
     with open("performance/" + pathString[distribution] + "/full_train/BTree/" + str(TOTAL_NUMBER) + ".json",

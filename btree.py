@@ -4,6 +4,7 @@
 # BTree Index with Python
 
 import pandas as pd
+import sys
 
 # Node in BTree
 class BTreeNode:
@@ -49,6 +50,7 @@ class BTreeNode:
             # 根节点未查询到，进入对应的子节点进行查询
             return b_tree.get_node(self.children[i]).search(b_tree, an_item)
 
+
 # BTree Class
 class BTree:
     # nodes[root_index]则表示为根节点
@@ -89,7 +91,7 @@ class BTree:
         if a_node.items[search_result['nodeIndex']] is None:
             return -1
         # 获取对应节点item中的value值
-        return a_node.items[search_result['nodeIndex']].v, search_result['nodeIndex']
+        return a_node.items[search_result['nodeIndex']].v
 
     # c_node节点数据满了，将此节点的数据移至其他节点
     def split_child(self, p_node, i, c_node):
