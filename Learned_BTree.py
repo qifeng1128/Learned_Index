@@ -40,29 +40,28 @@ pathString = {
 
 # threshold for train (judge whether stop train and replace with BTree)
 thresholdPool = {
-    Distribution.RANDOM: [1, 4],    
-    Distribution.EXPONENTIAL: [55, 10000]
+    Distribution.RANDOM: [1, 4, 4, 4, 4],
+    Distribution.EXPONENTIAL: [55, 10000, 10000, 10000, 10000]
 }   
 
 # whether use threshold to stop train for models in stages
 useThresholdPool = {
-    Distribution.RANDOM: [True, False],    
-    Distribution.EXPONENTIAL: [True, False],    
+    Distribution.RANDOM: [True, False, False, False, False],
+    Distribution.EXPONENTIAL: [True, False, False, False, False],
 }
 
 # hybrid training structure, 2 stages
 # threshold 用于模型训练的早停以及判断是否用b-tree来替代最后一层的learned index
 # use_threshold 用于表示是否使用threshold来进行模型训练的早停
-def hybrid_training(threshold, use_threshold, stage_nums, core_nums, train_step_nums, batch_size_nums, learning_rate_nums,
+def hybrid_training(threshold, use_threshold, stage, stage_nums, core_nums, train_step_nums, batch_size_nums, learning_rate_nums,
                     keep_ratio_nums, train_data_x, train_data_y, test_data_x, test_data_y):
     # stage_nums 为一个列表，存储着每个 stage 中 model 的个数
-    stage_length = len(stage_nums)      # stage_length 表示 stage 的个数
-    col_num = stage_nums[1]
+    stage_length = stage      # stage_length 表示 stage 的个数
     # initial
     # 格式【stage个数个【】,其中包含model个数个【】】
-    tmp_inputs = [[[] for i in range(col_num)] for i in range(stage_length)]
-    tmp_labels = [[[] for i in range(col_num)] for i in range(stage_length)]
-    index = [[None for i in range(col_num)] for i in range(stage_length)]
+    tmp_inputs = [[[] for j in range(stage_nums[i])] for i in range(stage_length)]
+    tmp_labels = [[[] for j in range(stage_nums[i])] for i in range(stage_length)]
+    index = [[None for j in range(stage_nums[i])] for i in range(stage_length)]
     # 放入对应的输入和标签
     tmp_inputs[0][0] = train_data_x    # 把数据全塞入第一个stage中的模型
     tmp_labels[0][0] = train_data_y
@@ -126,7 +125,7 @@ def hybrid_training(threshold, use_threshold, stage_nums, core_nums, train_step_
 
 # main function for training idnex
 # 只有训练集，没有测试集，构建模型训练时，传入的test_set_x和test_set_y为空列表
-def train_index(threshold, use_threshold, distribution, path):
+def train_index(threshold, use_threshold, stage, distribution, path):
     # data = pd.read_csv("data/random_t.csv", header=None)
     # data = pd.read_csv("data/exponential_t.csv", header=None)
     data = pd.read_csv(path, header=None)
@@ -148,8 +147,11 @@ def train_index(threshold, use_threshold, distribution, path):
     else:
         return
     stage_set = parameter.stage_set
-    # set number of models for second stage (1 model deal with 10000 records)
-    stage_set[1] = int(round(data.shape[0] / 10000))
+    # set number of models for the rest stage
+    stage_set[1] = int(round(data.shape[0] / 10000))    # (1 model deal with 10000 records)
+    stage_set[2] = 10     # (1 model deal with 100 records)
+    stage_set[3] = 10     # (1 model deal with 10 records)
+    stage_set[4] = 1
     core_set = parameter.core_set
     train_step_set = parameter.train_step_set
     batch_size_set = parameter.batch_size_set
@@ -182,7 +184,7 @@ def train_index(threshold, use_threshold, distribution, path):
     print("Start Train")
     start_time = time.time()
     # train index
-    trained_index = hybrid_training(threshold, use_threshold, stage_set, core_set, train_step_set, batch_size_set, learning_rate_set,
+    trained_index = hybrid_training(threshold, use_threshold, stage, stage_set, core_set, train_step_set, batch_size_set, learning_rate_set,
                                     keep_ratio_set, train_set_x, train_set_y, [], [])
     end_time = time.time()
     learn_time = end_time - start_time
@@ -192,13 +194,15 @@ def train_index(threshold, use_threshold, distribution, path):
     start_time = time.time()
     # calculate error
     for ind in range(len(test_set_x)):
-        # pick model in next stage
-        pre1 = trained_index[0][0].predict(test_set_x[ind])
-        if pre1 > stage_set[1] - 1:
-            pre1 = stage_set[1] - 1
-        # predict position
-        pre2 = trained_index[1][pre1].predict(test_set_x[ind])
-        err += abs(pre2 - test_set_y[ind])
+        pre = 0
+        for i in range(stage - 1):
+            # pick model in next stage
+            pre = trained_index[i][pre].predict(test_set_x[ind])
+            if pre > stage_set[i + 1] - 1:
+                pre = stage_set[i + 1] - 1
+        # predict the final stage position
+        pre = trained_index[stage - 1][pre].predict(test_set_x[ind])
+        err += abs(pre - test_set_y[ind])
     end_time = time.time()
     search_time = (end_time - start_time) / len(test_set_x)
     print("Search time %f " % search_time)
@@ -427,6 +431,7 @@ def show_help_message(msg):
                     'distribution': 'Distribution: random, exponential',
                     'percent': 'Percent: 0.1-1.0, default value = 0.5; sample train data size = 300,000',
                     'number': 'Number: 10,000-1,000,000, default value = 300,000',
+                    'stage': 'Stage: 2-5, default value = 2',
                     'new data': 'New Data: INTEGER, 0 for no creating new data file, others for creating, default = 1',
                     'fpError': 'Percent cannot be assigned in full train.',
                     'snError': 'Number cannot be assigned in sample train.',
@@ -446,13 +451,14 @@ def main(argv):
     distribution = None
     per = 0.5
     num = 300000
+    stage = 2
     is_sample = False
     is_type = False
     is_distribution = False
     do_create = True
     try:
         # 处理传入的参数内容
-        opts, args = getopt.getopt(argv, "hd:t:p:n:c:")
+        opts, args = getopt.getopt(argv, "hd:t:p:n:c:s:")
     except getopt.GetoptError:
         show_help_message('command')
         sys.exit(2)
@@ -527,6 +533,18 @@ def main(argv):
                 return
             do_create = not (int(arg) == 0)
 
+        elif opt == '-s':
+            if not is_type:
+                show_help_message('noTypeError')
+                return
+            if not is_distribution:
+                show_help_message('noDistributionError')
+                return
+            stage = int(arg)
+            if not 2 <= stage <= 5:
+                show_help_message('stage')
+                return
+
         else:
             print("Unknown parameters, please use -h for instructions.")
             return
@@ -542,10 +560,10 @@ def main(argv):
     if is_sample:        
         sample_train(thresholdPool[distribution], useThresholdPool[distribution], distribution, per, filePath[distribution])
     else:
-        train_index(thresholdPool[distribution], useThresholdPool[distribution], distribution, filePath[distribution])
+        train_index(thresholdPool[distribution], useThresholdPool[distribution], stage, distribution, filePath[distribution])
 
 
 if __name__ == "__main__":
-    args = ['-t', 'full', '-d', 'exponential', '-n', '100000', '-c', '1']
-    # main(sys.argv[1:])
-    main(args)
+    # args = ['-t', 'full', '-d', 'random', '-n', '10000', '-c', '1', '-s', '2']
+    main(sys.argv[1:])
+    # main(args)

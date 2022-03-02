@@ -45,15 +45,15 @@ class Parameter:
 
 # parameter pool
 class ParameterPool(Enum):
-    RANDOM = Parameter(stages=[1, 10], cores=[[1, 1], [1, 1]], train_steps=[20000, 20000],
-                       batch_sizes=[50, 50], learning_rates=[0.0001, 0.0001], keep_ratios=[1.0, 1.0])
-    LOGNORMAL = Parameter(stages=[1, 100], cores=[[1, 16, 16, 1], [1, 8, 1]], train_steps=[2000, 400],
+    RANDOM = Parameter(stages=[1, 10, 100, 10, 1], cores=[[1, 1], [1, 1], [1, 1], [1, 1], [1, 1]], train_steps=[20000, 20000, 20000, 20000, 20000],
+                       batch_sizes=[50, 50, 50, 50, 50], learning_rates=[0.0001, 0.0001, 0.0001, 0.0001, 0.0001], keep_ratios=[1.0, 1.0, 1.0, 1.0, 1.0])
+    LOGNORMAL = Parameter(stages=[1, 100, 100, 10, 1], cores=[[1, 16, 16, 1], [1, 8, 1]], train_steps=[2000, 400],
                           batch_sizes=[100, 50], learning_rates=[0.0001, 0.001], keep_ratios=[1.0, 0.9])
-    EXPONENTIAL = Parameter(stages=[1, 100], cores=[[1, 8, 1], [1, 8, 1]], train_steps=[30000, 20000],
-                            batch_sizes=[50, 50], learning_rates=[0.0001, 0.001], keep_ratios=[0.9, 1.0])
+    EXPONENTIAL = Parameter(stages=[1, 100, 100, 10, 1], cores=[[1, 8, 1], [1, 8, 1], [1, 8, 1], [1, 8, 1], [1, 8, 1]], train_steps=[30000, 20000, 20000, 20000, 20000],
+                            batch_sizes=[50, 50, 50, 50, 50], learning_rates=[0.0001, 0.001, 0.001, 0.001, 0.001], keep_ratios=[0.9, 1.0, 1.0, 1.0, 1.0])
     # EXPONENTIAL = Parameter(stages=[1, 100], cores=[[1, 16, 16, 1], [1, 8, 1]], train_steps=[20000, 300],
     #                       batch_sizes=[20, 50], learning_rates=[0.0001, 0.001], keep_ratios=[1.0, 1.0])
-    NORMAL = Parameter(stages=[1, 100], cores=[[1, 8, 1], [1, 8, 1]], train_steps=[20000, 300],
+    NORMAL = Parameter(stages=[1, 100, 100, 10, 1], cores=[[1, 8, 1], [1, 8, 1]], train_steps=[20000, 300],
                        batch_sizes=[50, 50], learning_rates=[0.0001, 0.001], keep_ratios=[0.9, 1.0])
 
 # initialize weight marrix
