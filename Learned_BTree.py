@@ -14,8 +14,8 @@ import os, sys, getopt
 import numpy as np
 
 
-BLOCK_SIZE = 102400
-MAX_SUB_NUM = int(BLOCK_SIZE / 196)
+BLOCK_SIZE = 4096
+MAX_SUB_NUM = int(BLOCK_SIZE / 64)
 DEGREE = int((MAX_SUB_NUM + 1) / 2)
 
 # data files
