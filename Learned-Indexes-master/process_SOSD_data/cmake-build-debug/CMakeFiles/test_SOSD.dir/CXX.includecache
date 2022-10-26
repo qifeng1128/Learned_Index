@@ -1,0 +1,22 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+D:/lunwen/test_SOSD/main.cpp
+iostream
+-
+vector
+-
+fstream
+-
+functional
+-
+chrono
+-
+algorithm
+-
+

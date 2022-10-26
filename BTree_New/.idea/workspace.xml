@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CMakeRunConfigurationManager" shouldGenerate="true" shouldDeleteObsolete="true">
+    <generated>
+      <config projectName="b_tree_master" targetName="b_tree_master" />
+    </generated>
+  </component>
+  <component name="CMakeSettings">
+    <configurations>
+      <configuration PROFILE_NAME="Debug" CONFIG_NAME="Debug" />
+    </configurations>
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="e25893ac-d1b9-4679-91b1-6fadef6b0166" name="Default Changelist" comment="" />
+    <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="CMakeBuildProfile:Debug" />
+  <component name="ProjectId" id="26EAcHayp6D3RgaSEhO8eEnhCy0" />
+  <component name="PropertiesComponent">
+    <property name="WebServerToolWindowFactoryState" value="false" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+  </component>
+  <component name="RunDashboard">
+    <option name="ruleStates">
+      <list>
+        <RuleState>
+          <option name="name" value="ConfigurationTypeDashboardGroupingRule" />
+        </RuleState>
+        <RuleState>
+          <option name="name" value="StatusDashboardGroupingRule" />
+        </RuleState>
+      </list>
+    </option>
+  </component>
+  <component name="RunManager">
+    <configuration name="b_tree_master" type="CMakeRunConfiguration" factoryName="Application" PASS_PARENT_ENVS_2="true" PROJECT_NAME="b_tree_master" TARGET_NAME="b_tree_master" CONFIG_NAME="Debug" RUN_TARGET_PROJECT_NAME="b_tree_master" RUN_TARGET_NAME="b_tree_master">
+      <method v="2">
+        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="e25893ac-d1b9-4679-91b1-6fadef6b0166" name="Default Changelist" comment="" />
+      <created>1646978450265</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1646978450265</updated>
+      <workItem from="1646978453213" duration="53000" />
+      <workItem from="1646978570941" duration="1075000" />
+      <workItem from="1646980273299" duration="580000" />
+      <workItem from="1646981001461" duration="48000" />
+      <workItem from="1646981069264" duration="664000" />
+      <workItem from="1647576814136" duration="5810000" />
+      <workItem from="1647584695190" duration="3844000" />
+      <workItem from="1647598048568" duration="3120000" />
+      <workItem from="1648033846050" duration="7303000" />
+      <workItem from="1648101518323" duration="5350000" />
+      <workItem from="1648128555795" duration="2025000" />
+      <workItem from="1648133346291" duration="603000" />
+      <workItem from="1648175658082" duration="1373000" />
+      <workItem from="1648777259744" duration="4594000" />
+      <workItem from="1648812259254" duration="1667000" />
+      <workItem from="1648819370159" duration="315000" />
+      <workItem from="1648950366973" duration="1144000" />
+      <workItem from="1649161575757" duration="1775000" />
+      <workItem from="1649208705042" duration="15258000" />
+      <workItem from="1649251759572" duration="925000" />
+      <workItem from="1649304697954" duration="12695000" />
+      <workItem from="1649380458215" duration="693000" />
+      <workItem from="1649643318960" duration="677000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="1" />
+  </component>
+</project>

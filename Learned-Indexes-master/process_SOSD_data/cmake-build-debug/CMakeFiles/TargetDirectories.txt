@@ -1,0 +1,3 @@
+D:/lunwen/test_SOSD/cmake-build-debug/CMakeFiles/test_SOSD.dir
+D:/lunwen/test_SOSD/cmake-build-debug/CMakeFiles/edit_cache.dir
+D:/lunwen/test_SOSD/cmake-build-debug/CMakeFiles/rebuild_cache.dir

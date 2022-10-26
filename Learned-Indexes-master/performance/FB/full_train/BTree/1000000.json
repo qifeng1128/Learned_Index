@@ -1,0 +1,1 @@
+{"type": "BTree", "build time": 1.3031971454620361, "search time": 0.00012997503018379213, "search average error": 254.916439, "range search time": 0.946923017501831, "insert time": 0.00023272237479686738, "bulk load new search time": 0.0001301647198200226, "insert new search time": 0.00010658321380615234, "store size": 22985884}

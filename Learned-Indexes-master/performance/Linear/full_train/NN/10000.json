@@ -1,0 +1,1 @@
+{"type": "NN", "build time": 76.0070972442627, "search time": 4.73400354385376e-05, "search average error": 12.6122, "range search time": 0.0006949901580810547, "insert time": 8.871901035308838e-05, "insert average error": 979466.6062, "delete time": 0.0013304797887802125, "store size": 64877}
